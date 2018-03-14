@@ -7,3 +7,5 @@ Hypergraph in this case is a isomorphic bichromatic graph.
 ## Current Functionality
 
 Initialization of a hypergraph.
+
+In the future it'll be used for computing the ledger and in the API for SHARNELL Smart Contracts.
