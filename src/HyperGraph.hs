@@ -5,14 +5,14 @@ module HyperGraph where
 import Data.IntMap (IntMap)
 import qualified Data.IntMap as IM 
 
+import Data.IntSet (IntSet)
+import qualified Data.IntSet as IS
+
 import DirectHyperGraph hiding (Edge)
 import PatriciaTree
 
---type Context' a b = (IntMap [b], a, IntMap [b])
-
---type GraphRep a b = IntMap (Context' a b)
-
-data Block
+data Block h = Block
+  deriving (Show)
 
 data Simple
 
@@ -21,75 +21,88 @@ data Super
 type Size = Int
 
 -- HyperContext
-data HContext a b h where 
-    SimpleCont   :: (h, [Node]) -> HContext () () h
-    SDirectCont  :: ([Node], h, [Node]) -> HContext () () h
-    ConectedCont :: (Gr () a b, h) -> HContext a b h
-    CDirectCont  :: (Gr () a b, h, Gr () a b) -> HContext a b h 
+data HContext h = SimpleHCont (IntSet, Block h) 
+                | DirectHCont (IntSet, Block h, IntSet)
+  deriving (Show)
 
-type HGraphRep a b h = IntMap (HContext a b h)
-
---type HContext' a b h = (IntMap [b], IntMap [b], a, IntMap [h], IntMap [h])
-
---type HGraphRep a b h = IntMap (HContext' a b h)
+type HGraphRep h = IntMap (HContext h)
 
 -- two type of nodes of biparate graph 
 data HNode a where
     HNode :: Node -> Node -> Simple -> HNode Simple
-    Block :: Node -> Node -> Super  -> HNode Super
+    --Block :: Node -> Node -> Super  -> HNode Super
+
+type Sub a b h = Gr (Block h) a b 
 
 -- HyperEdge representations
 data Hyper a b h where
     Simple   :: [Node] -> h -> Hyper () () h
     SDirect  :: [Node] -> [Node] -> h -> Hyper () () h
     --Hyper :: (Gr sub) => (sub a b, sub a b) -> Edge a b
-    Conected :: Gr () a b -> h -> Hyper a b h
-    CDirect  :: Gr () a b -> Gr () a b -> h -> Hyper a b h
+    Conected :: Sub a b h -> Block h -> Hyper a b h
+    CDirect  :: Sub a b h -> Sub a b h -> Block h -> Hyper a b h
  
 -- HyperGraph representations
 data HGr a b h = --HGr (Gr h a b) (HGraphRep h)
-                 HGr (Gr h a b) (Gr () a h)
+                 HGr (Sub a b h) (HGraphRep h)
                | Shadow (Gr () a h)
   deriving (Show)
 
 -- empty HyperGraph
 hempty :: HGr a b h
-hempty = HGr empty empty
+hempty = HGr empty IM.empty
+
+mkHyperGraph :: Hyper a b h -> HGr a b h
+mkHyperGraph (Conected sub lab) = 
+    let hedge  = IS.fromList (nodes sub)
+        hcont  = mkHContInit hedge lab
+        sub'   = insBlockInit sub lab
+    in HGr sub hcont
+
 
 -- add HyperEdge
-{-
-(+>>) :: (Hyper a b h) -> HGr a b h -> HGr a b h
-(Conected g lab) +>> (HGr h1 h2) = let ns  = nodes g
-                                       h2' = insBlock h2 ns
-                                       h1' = unionGraphs g h1
-                                   in HGr h1' h2'
--}
+(+>>) :: Hyper a b h -> HGr a b h -> HGr a b h
+(Conected sub hl) +>> (HGr g hcont) = 
+    let hedge  = IS.fromList (nodes sub)
+        hcont' = mkHCont (IM.size hcont) hedge hl hcont
+        g'     = mergeGraphs sub g
+    in HGr g' hcont'
 
-insBlock h2 ns = undefined
-
-unionGraphs g h2 = let ns = labNodes g
-                       es = labEdges g
-                   in undefined --insEdges es (insNodes ns h)
-
-{-
-getSubGraph :: HGr a b h -> Gr a b
-getSubGraph (HGr h1 h2) = let hcontext = getHContext' h1
-                              scontext = toContext' hcontext
-                          in Gr (IM.fromList context)   
--}
 
 ----------------------------------------------------------------------
 -- UTILITIES
 ----------------------------------------------------------------------
+mkHContInit :: IntSet -> Block h -> HGraphRep h
+mkHContInit hedge h = IM.insert 0 (SimpleHCont (hedge, h)) IM.empty 
+
+insBlockInit :: Sub a b h -> Block h -> Sub a b h
+insBlockInit (Gr cont) hl = Gr (IM.map (f hl) cont)
+  where f hl (ps, ss, l, hps, hss) = 
+          let hps' = IM.insert 0 [hl] hps
+          in (ps, ss, l, hps', hss) 
+
+mergeGraphs sub g = insEdges (labEdges sub) $ insNodes (labNodes sub) g
+
+mkHCont :: Int -> IntSet -> Block h -> HGraphRep h -> HGraphRep h
+mkHCont n hedge h hcont = IM.insert n (SimpleHCont (hedge, h)) hcont
+
 
 ----------------------------------------------------------------------
 -- EXAMPLES
 ----------------------------------------------------------------------
 
--- enerate HyperEdges
-h0 = Conected (mkGraph [(1,"a"), (2,"b")] [(1,2,"ab")])
-              "hyper1"
-              
+-- generate HyperEdges
+ns0  = [(1,"a"), (2,"b")]
+es0  = [(1,2,"ab")]
+sub0 = mkGraph ns0 es0 :: Sub String String (Block ())
+h0   = Conected sub0 Block
+hgr0 = mkHyperGraph h0
+
+ns1  = [(3,"c"), (4,"d")]
+es1  = [(3,4,"cd")]
+sub1 = mkGraph ns1 es1 :: Sub String String (Block ())
+h1   = Conected sub1 Block
+hgr1 = h1 +>> hgr0
 
 
 
