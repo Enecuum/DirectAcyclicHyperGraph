@@ -11,7 +11,11 @@ import qualified Data.IntSet as IS
 import DirectHyperGraph hiding (Edge)
 import PatriciaTree
 
+import System.Random
+import Control.Monad (replicateM)
+
 data Block h = Block
+             | Statistic h
   deriving (Show)
 
 data Simple
@@ -45,7 +49,7 @@ data Hyper a b h where
 -- HyperGraph representations
 data HGr a b h = --HGr (Gr h a b) (HGraphRep h)
                  HGr (Sub a b h) (HGraphRep h)
-               | Shadow (Gr () a h)
+               | Shadow (IntMap [h], a, IntMap [h]) (HGraphRep h)
   deriving (Show)
 
 -- empty HyperGraph
@@ -62,30 +66,57 @@ mkHyperGraph (Conected sub lab) =
 
 -- add HyperEdge
 (+>>) :: Hyper a b h -> HGr a b h -> HGr a b h
-(Conected sub hl) +>> (HGr g hcont) = 
-    let hedge  = IS.fromList (nodes sub)
-        hcont' = mkHCont (IM.size hcont) hedge hl hcont
-        g'     = mergeGraphs sub g
-    in HGr g' hcont'
 
+(Conected sub hl) +>> (HGr g h) = 
+    let hedge = IS.fromList (nodes sub)
+        hcont = SimpleHCont (hedge, hl)
+        n     = IM.size h
+        h'    = IM.insert n hcont h
+        sub'  = insBlock hcont n sub
+        g'    = mergeGraphs g sub'
+    in HGr g' h'
+
+(SDirect ns1 ns2 hl) +>> (Shadow g h) = undefined
+ 
+{-
+instance (Show a, Show b) => Show (Gr h a b) where
+  showsPrec d g = showParen (d > 10) $
+                    showString "mkGraph "
+                    . shows (labNodes g)
+                    . showString " "
+                    . shows (labEdges g)
+-}
 
 ----------------------------------------------------------------------
 -- UTILITIES
 ----------------------------------------------------------------------
+
 mkHContInit :: IntSet -> Block h -> HGraphRep h
 mkHContInit hedge h = IM.insert 0 (SimpleHCont (hedge, h)) IM.empty 
 
 insBlockInit :: Sub a b h -> Block h -> Sub a b h
 insBlockInit (Gr cont) hl = Gr (IM.map (f hl) cont)
   where f hl (ps, ss, l, hps, hss) = 
-          let hps' = IM.insert 0 [hl] hps
+          let hps' = IM.insert 0 hl hps
           in (ps, ss, l, hps', hss) 
 
-mergeGraphs sub g = insEdges (labEdges sub) $ insNodes (labNodes sub) g
+mergeGraphs (Gr cont1) (Gr cont2) = Gr $ IM.unionWith u cont1 cont2
+  where u (p, s, l, hp1, hs1) (_, _, _, hp2, hs2) =
+          let hp = IM.union hp1 hp2
+              hs = IM.union hs1 hs2
+          in (p, s, l, hp, hs)
 
-mkHCont :: Int -> IntSet -> Block h -> HGraphRep h -> HGraphRep h
-mkHCont n hedge h hcont = IM.insert n (SimpleHCont (hedge, h)) hcont
+insBlock :: HContext h -> Int -> Sub a b h -> Sub a b h
+insBlock (SimpleHCont (_, hl)) n (Gr cont) = Gr (IM.map (f n hl) cont)
+  where f n hl (ps, ss, l, hps, hss) = 
+          let hps' = IM.insert n hl hps 
+          in (ps, ss, l, hps', hss)
 
+getHCont (HGr (Gr cont) _) = cont 
+
+getCont (Gr cont) = cont 
+
+getGr (HGr g _) = g
 
 ----------------------------------------------------------------------
 -- EXAMPLES
@@ -96,13 +127,21 @@ ns0  = [(1,"a"), (2,"b")]
 es0  = [(1,2,"ab")]
 sub0 = mkGraph ns0 es0 :: Sub String String (Block ())
 h0   = Conected sub0 Block
-hgr0 = mkHyperGraph h0
+hgr0 = h0 +>> hempty --mkHyperGraph h0
 
-ns1  = [(3,"c"), (4,"d")]
-es1  = [(3,4,"cd")]
-sub1 = mkGraph ns1 es1 :: Sub String String (Block ())
-h1   = Conected sub1 Block
-hgr1 = h1 +>> hgr0
+ns1   = [(1,"a"), (3,"c"), (4,"d")]
+es1   = [(1,4,"cd")]
+sub1  = mkGraph ns1 es1 :: Sub String String (Block ())
+h1    = Conected sub1 Block
+hgr1  = h1 +>> hgr0
+
+exampleSimple = do 
+    let es = [(v,()) | v <- [1..10]]
+    ns <- replicateM 5 $ replicateM 3 $ randomRIO (1,10)
+    let ns' = map IS.toList (map IS.fromList ns)
+    return ns'
+
+
 
 
 

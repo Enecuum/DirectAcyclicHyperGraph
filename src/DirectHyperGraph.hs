@@ -122,6 +122,7 @@ type Adj b        = [(b,Node)]
 --   In other words, this captures all information regarding the
 --   specified 'Node' within a graph.
 type Context a b  = (Adj b,Node,a,Adj b) -- Context a b "=" Context' a b "+" Node
+
 type MContext a b = Maybe (Context a b)
 -- | 'Graph' decomposition - the context removed from a 'Graph', and the rest
 -- of the 'Graph'.

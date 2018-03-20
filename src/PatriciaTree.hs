@@ -65,7 +65,7 @@ type GraphRep a b h = IntMap (Context' a b h)
 --type HContext' a b h = (IntMap [b], IntMap [b], a, IntMap [h], IntMap [h])
 
 --enequm-- update Context' to HyperContext' --enequm--
-type Context' a b h = (IntMap [b], IntMap [b], a, IntMap [h], IntMap [h])
+type Context' a b h = (IntMap [b], IntMap [b], a, IntMap h, IntMap h)
 
 type UGr = Gr () ()
 
@@ -129,13 +129,43 @@ instance Graph (Gr h) where
 --instance DynGraph Gr where
 instance DynGraph (Gr h) where
     (p, v, l, s) & (Gr g)
-        = let -- !g1 = IM.insert v (preds, l, succs) g 
-              !g1 = IM.insert v (preds, succs, l, IM.empty, IM.empty) g 
-              !(np, preds) = fromAdjCounting p
-              !(ns, succs) = fromAdjCounting s
-              !g2 = addSucc g1 v np preds
-              !g3 = addPred g2 v ns succs
-          in Gr g3
+        = case IM.lookup v g of
+            Nothing -> 
+              let -- !g1 = IM.insert v (preds, l, succs) g 
+                  -- !g1 = IM.insertWith f v (preds, succs, l, IM.empty, IM.empty) g
+                  !g1 = IM.insert v (preds, succs, l, IM.empty, IM.empty) g
+                  -- f (p, s, l, hp1, hs1) (_, _, _, hp2, hs2) = 
+                  -- (p, s, l, IM.union hp1 hp2, IM.union hs1 hs2)
+                  !(np, preds) = fromAdjCounting p
+                  !(ns, succs) = fromAdjCounting s
+                  !g2 = addSucc g1 v np preds
+                  !g3 = addPred g2 v ns succs
+              in Gr g3
+            (Just (_, _, _, hp, hs)) ->
+                let -- !g1 = IM.insert v (preds, l, succs) g 
+                   -- !g1 = IM.insertWith f v (preds, succs, l, hp, hs) g 
+                   !g1 = IM.insert v (preds, succs, l, hp, hs) g
+                  -- f (p, s, l, hp1, hs1) (_, _, _, hp2, hs2) = 
+                  -- (p, s, l, IM.union hp1 hp2, IM.union hs1 hs2)
+                   !(np, preds) = fromAdjCounting p
+                   !(ns, succs) = fromAdjCounting s
+                   !g2 = addSucc g1 v np preds
+                   !g3 = addPred g2 v ns succs
+                in Gr g3
+  
+--enequm-- merge HyperContext  --enequm--
+{-
+(*&*) :: (v, Context') -> Gr h a b -> Gr h a b
+(p, s, l, hp, hs) *&*  (Gr g) = 
+  let !g1 = IM.insertWith f v (preds, succs, l, hp, hs) g 
+      f (p, s, l, hp1, hs1) (_, _, _, hp2, hs2) = 
+        (p, s, l, IM.union hp1 hp2, IM.union hs1 hs2) 
+      !(np, preds) = fromAdjCounting p
+      !(ns, succs) = fromAdjCounting s
+      !g2 = addSucc g1 v np preds
+      !g3 = addPred g2 v ns succs
+  in Gr g3
+-}
 
 #if MIN_VERSION_containers (0,4,2)
 --instance (NFData a, NFData b) => NFData (Gr a b) where
