@@ -8,7 +8,7 @@ import qualified Data.IntMap as IM
 import Data.IntSet (IntSet)
 import qualified Data.IntSet as IS
 
-import DirectHyperGraph hiding (Edge)
+import Data.Graph.Inductive.Graph --hiding (Edge)
 import PatriciaTree
 
 import System.Random

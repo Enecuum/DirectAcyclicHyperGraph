@@ -21,7 +21,7 @@
 
 module PatriciaTree where
 
-import DirectHyperGraph
+import Data.Graph.Inductive.Graph
 
 import           Control.Applicative (liftA2)
 import           Data.IntMap         (IntMap)
