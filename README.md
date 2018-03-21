@@ -2,7 +2,7 @@
 
 A library for directed hypergraphs based on the inductive graph concept proposed by Martin Erwig, implementing important algorithms for hypergraphs.
 
-Hypergraph in this case is an isomorphic bichromatic graph.  
+Hypergraph in this case is an isomorphic bipartite graph.  
 
 ## Current Functionality
 
