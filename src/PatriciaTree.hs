@@ -21,7 +21,7 @@
 
 module PatriciaTree where
 
-import Data.Graph.Inductive.Graph
+import DirectHyperGraph
 
 import           Control.Applicative (liftA2)
 import           Data.IntMap         (IntMap)
@@ -66,6 +66,8 @@ type GraphRep a b h = IntMap (Context' a b h)
 
 --enequm-- update Context' to HyperContext' --enequm--
 type Context' a b h = (IntMap [b], IntMap [b], a, IntMap h, IntMap h)
+
+type HyperContext a b h = (Adj b, Adj b, Node, a, IntMap h, IntMap h)
 
 type UGr = Gr () ()
 
@@ -127,45 +129,34 @@ instance Graph (Gr h) where
                          return (node, next, label)
 
 --instance DynGraph Gr where
+  
 instance DynGraph (Gr h) where
     (p, v, l, s) & (Gr g)
-        = case IM.lookup v g of
-            Nothing -> 
-              let -- !g1 = IM.insert v (preds, l, succs) g 
-                  -- !g1 = IM.insertWith f v (preds, succs, l, IM.empty, IM.empty) g
-                  !g1 = IM.insert v (preds, succs, l, IM.empty, IM.empty) g
-                  -- f (p, s, l, hp1, hs1) (_, _, _, hp2, hs2) = 
-                  -- (p, s, l, IM.union hp1 hp2, IM.union hs1 hs2)
-                  !(np, preds) = fromAdjCounting p
-                  !(ns, succs) = fromAdjCounting s
-                  !g2 = addSucc g1 v np preds
-                  !g3 = addPred g2 v ns succs
-              in Gr g3
-            (Just (_, _, _, hp, hs)) ->
-                let -- !g1 = IM.insert v (preds, l, succs) g 
-                   -- !g1 = IM.insertWith f v (preds, succs, l, hp, hs) g 
-                   !g1 = IM.insert v (preds, succs, l, hp, hs) g
-                  -- f (p, s, l, hp1, hs1) (_, _, _, hp2, hs2) = 
-                  -- (p, s, l, IM.union hp1 hp2, IM.union hs1 hs2)
-                   !(np, preds) = fromAdjCounting p
-                   !(ns, succs) = fromAdjCounting s
-                   !g2 = addSucc g1 v np preds
-                   !g3 = addPred g2 v ns succs
-                in Gr g3
-  
---enequm-- merge HyperContext  --enequm--
-{-
-(*&*) :: (v, Context') -> Gr h a b -> Gr h a b
-(p, s, l, hp, hs) *&*  (Gr g) = 
-  let !g1 = IM.insertWith f v (preds, succs, l, hp, hs) g 
-      f (p, s, l, hp1, hs1) (_, _, _, hp2, hs2) = 
-        (p, s, l, IM.union hp1 hp2, IM.union hs1 hs2) 
-      !(np, preds) = fromAdjCounting p
-      !(ns, succs) = fromAdjCounting s
-      !g2 = addSucc g1 v np preds
-      !g3 = addPred g2 v ns succs
-  in Gr g3
--}
+        = let -- !g1 = IM.insert v (preds, l, succs) g
+              cont = IM.lookup v g
+              !g1 = IM.insert v (preds, succs, l, hp cont, hs cont) g
+              -- f (_, _, _, hp2, hs2) (p, s, l, hp1, hs1)  = 
+              --  (p, s, l, hp1, hs1)
+              hp Nothing = IM.empty
+              hp (Just (_, _, _, hp, _)) = hp
+              hs Nothing = IM.empty
+              hs (Just (_, _, _, _, hs)) = hs
+              !(np, preds) = fromAdjCounting p
+              !(ns, succs) = fromAdjCounting s
+              !g2 = addSucc g1 v np preds
+              !g3 = addPred g2 v ns succs
+          in Gr g3
+
+(*&) :: HyperContext a b h -> Gr h a b ->  Gr h a b
+(p, s, v, l, hp, hs) *& (Gr g) = 
+    let  
+        -- !g1 = IM.insert v (preds, succs, l, hp, hs) g
+        !(np, preds) = fromAdjCounting p
+        !(ns, succs) = fromAdjCounting s
+        !g2 = addSucc g1 v np preds
+        !g3 = addPred g2 v ns succs
+        !g1 = IM.insert v (preds, succs, l, hp, hs) g
+    in Gr g1
 
 #if MIN_VERSION_containers (0,4,2)
 --instance (NFData a, NFData b) => NFData (Gr a b) where
@@ -190,13 +181,30 @@ matchGr node (Gr g)
         Nothing
             -> (Nothing, Gr g)
 
-        Just (p, s, label, hs, hp)
+        Just (p, s, label, hp, hs)
             -> let !g1 = IM.delete node g
                    !p' = IM.delete node p
                    !s' = IM.delete node s
                    !g2 = clearPred g1 node s'
                    !g3 = clearSucc g2 node p'
+                   --g3' = IM.insert node (IM.empty, IM.empty, label, hp, hs) g3
                in (Just (toAdj p', node, label, toAdj s), Gr g3)
+
+--matchHyperGr :: Node -> Gr h a b -> Decomp (Gr h) a b
+matchHGr node (Gr g)
+    = case IM.lookup node g of
+        Nothing
+            -> (Nothing, Gr g)
+
+        Just (p, s, label, hp, hs)
+            -> let !g1 = IM.delete node g
+                   !p' = IM.delete node p
+                   !s' = IM.delete node s
+                   !g2 = clearPred g1 node s'
+                   !g3 = clearSucc g2 node p'
+                   --g3' = IM.insert node (IM.empty, IM.empty, label, hp, hs) g3
+               in --(Just (toAdj p', node, label, toAdj s), Gr g3)
+                    (Just (toAdj p', toAdj s, node, label, hp, hs), Gr g3)
 
 ----------------------------------------------------------------------
 -- OVERRIDING FUNCTIONS
@@ -341,7 +349,7 @@ addSucc g0 v numAdd xs
     go :: GraphRep a b h -> Node -> [b] -> GraphRep a b h
     go g p l = IMS.adjust f p g
       where f (ps, ss, l', hss, hps) = let !ss' = IM.insertWith addLists v l ss
-                                       in (ps, ss', l', hss, hps)
+                                       in (ps, ss', l', hps, hss)
     --go g p l = IMS.adjust f p g
     --  where f (ps, l', ss) = let !ss' = IM.insertWith addLists v l ss
     --                         in (ps, l', ss')
@@ -350,7 +358,7 @@ addSucc g v _ xs = IMS.differenceWith go g xs
     --go :: Context' a b -> [b] -> Maybe (Context' a b)
     go :: Context' a b h -> [b] -> Maybe (Context' a b h)
     go (ps, ss, l', hss, hps) l = let !ss' = IM.insertWith addLists v l ss
-                                  in Just (ps, ss', l', hss, hps)
+                                  in Just (ps, ss', l', hps, hss)
    -- go (ps, l', ss) l = let !ss' = IM.insertWith addLists v l ss
    --                     in Just (ps, l', ss')
 

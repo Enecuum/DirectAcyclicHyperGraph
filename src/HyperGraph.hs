@@ -8,15 +8,16 @@ import qualified Data.IntMap as IM
 import Data.IntSet (IntSet)
 import qualified Data.IntSet as IS
 
-import Data.Graph.Inductive.Graph --hiding (Edge)
+import DirectHyperGraph hiding (Edge)
 import PatriciaTree
 
 import System.Random
 import Control.Monad (replicateM)
 
 data Block h = Block
-             | Statistic h
+             | Statistic { block :: Block h, count :: Int, time :: Double, amount :: Int }
   deriving (Show)
+
 
 data Simple
 
@@ -45,8 +46,7 @@ data Hyper a b h where
     --Hyper :: (Gr sub) => (sub a b, sub a b) -> Edge a b
     Conected :: Sub a b h -> Block h -> Hyper a b h
     CDirect  :: Sub a b h -> Sub a b h -> Block h -> Hyper a b h
- 
--- HyperGraph representations
+
 data HGr a b h = --HGr (Gr h a b) (HGraphRep h)
                  HGr (Sub a b h) (HGraphRep h)
                | Shadow (IntMap [h], a, IntMap [h]) (HGraphRep h)
@@ -56,25 +56,19 @@ data HGr a b h = --HGr (Gr h a b) (HGraphRep h)
 hempty :: HGr a b h
 hempty = HGr empty IM.empty
 
-mkHyperGraph :: Hyper a b h -> HGr a b h
-mkHyperGraph (Conected sub lab) = 
-    let hedge  = IS.fromList (nodes sub)
-        hcont  = mkHContInit hedge lab
-        sub'   = insBlockInit sub lab
-    in HGr sub hcont
-
-
 -- add HyperEdge
 (+>>) :: Hyper a b h -> HGr a b h -> HGr a b h
 
 (Conected sub hl) +>> (HGr g h) = 
     let hedge = IS.fromList (nodes sub)
         hcont = SimpleHCont (hedge, hl)
-        n     = IM.size h
+        n     = IM.size h 
         h'    = IM.insert n hcont h
         sub'  = insBlock hcont n sub
-        g'    = mergeGraphs g sub'
-    in HGr g' h'
+        g1    = --insEdges (labEdges sub) $ insNodes (labNodes sub) g 
+                mergeGraphs g sub'
+        --g2    = insBlock hcont n g1
+    in HGr g1 h'
 
 (SDirect ns1 ns2 hl) +>> (Shadow g h) = undefined
  
@@ -88,7 +82,7 @@ instance (Show a, Show b) => Show (Gr h a b) where
 -}
 
 ----------------------------------------------------------------------
--- UTILITIES
+-- HELPERS
 ----------------------------------------------------------------------
 
 mkHContInit :: IntSet -> Block h -> HGraphRep h
@@ -98,13 +92,21 @@ insBlockInit :: Sub a b h -> Block h -> Sub a b h
 insBlockInit (Gr cont) hl = Gr (IM.map (f hl) cont)
   where f hl (ps, ss, l, hps, hss) = 
           let hps' = IM.insert 0 hl hps
-          in (ps, ss, l, hps', hss) 
+          in (ps, ss, l, hps', hss)  
 
-mergeGraphs (Gr cont1) (Gr cont2) = Gr $ IM.unionWith u cont1 cont2
-  where u (p, s, l, hp1, hs1) (_, _, _, hp2, hs2) =
-          let hp = IM.union hp1 hp2
-              hs = IM.union hs1 hs2
-          in (p, s, l, hp, hs)
+mergeGraphs (Gr gr') gr = IM.foldlWithKey' insCont gr gr'
+
+insCont :: Gr h a b  -> Node -> Context' a b h -> Gr h a b 
+insCont g v (p1,s1,l,hp1,hs1) = 
+    case matchHGr v g of
+        (Nothing,_) -> (toAdj p1, toAdj s1, v, l, hp1, hs1) *& g    
+        (Just (p2, s2, _, _, hp2, hs2), m) -> 
+            let adj1 = p2 ++ toAdj p1
+                adj2 = s2 ++ toAdj s1
+                hp3  = IM.union hp1 hp2
+                hs3  = IM.union hs1 hs2
+            in (adj1, adj2, v, l, hp3, hs3) *& m
+
 
 insBlock :: HContext h -> Int -> Sub a b h -> Sub a b h
 insBlock (SimpleHCont (_, hl)) n (Gr cont) = Gr (IM.map (f n hl) cont)
@@ -113,6 +115,8 @@ insBlock (SimpleHCont (_, hl)) n (Gr cont) = Gr (IM.map (f n hl) cont)
           in (ps, ss, l, hps', hss)
 
 getHCont (HGr (Gr cont) _) = cont 
+
+getHyperCont (HGr _ h) = h
 
 getCont (Gr cont) = cont 
 
@@ -123,17 +127,23 @@ getGr (HGr g _) = g
 ----------------------------------------------------------------------
 
 -- generate HyperEdges
-ns0  = [(1,"a"), (2,"b")]
-es0  = [(1,2,"ab")]
-sub0 = mkGraph ns0 es0 :: Sub String String (Block ())
-h0   = Conected sub0 Block
-hgr0 = h0 +>> hempty --mkHyperGraph h0
+ns1  = [(1,"a"), (2,"b")]
+es1  = [(1,2,"h1")]
+sub1 = mkGraph ns1 es1 :: Sub String String ()
+h1   = Conected sub1 Block
+hgr1 = h1 +>> hempty --mkHyperGraph h0
 
-ns1   = [(1,"a"), (3,"c"), (4,"d")]
-es1   = [(1,4,"cd")]
-sub1  = mkGraph ns1 es1 :: Sub String String (Block ())
-h1    = Conected sub1 Block
-hgr1  = h1 +>> hgr0
+ns2   = [(1,"a"), (2,"b"), (3,"c")]
+es2   = [(1,2,"h2"), (2,3,"h2")]
+sub2  = mkGraph ns2 es2 :: Sub String String ()
+h2    = Conected sub2 Block
+hgr2  = h2 +>> hgr1
+
+ns3  = [(4,"c"), (5,"d"), (6,"e")]
+es3  = [(4,5,"h3"), (4,6,"h3")]
+sub3 = mkGraph ns3 es3 :: Sub String String ()
+h3   = Conected sub3 Block
+hgr3 = h3 +>> hempty
 
 exampleSimple = do 
     let es = [(v,()) | v <- [1..10]]
@@ -141,7 +151,30 @@ exampleSimple = do
     let ns' = map IS.toList (map IS.fromList ns)
     return ns'
 
+g1 = getGr hgr1
+cont1 = getCont g1
 
+g2 = insNode (3,"c") g1
+cont2 = getCont g2
+
+g3 = insEdge (2,1,"ba") g1
+cont3 = getCont g3
+
+ns = [(1,"a"), (2,"b"), (3,"c")]
+es = [(1,2,"ac")]
+gr = mkGraph ns3 es3 :: Gr () String String
+
+blocksCont hgr = IM.map (\(_,_,_,hp,hs) -> (hp,hs)) (getHCont hgr)
+
+
+--insCont' :: Gr h a b  -> Node -> Context' a b h -> Gr h a b 
+insCont' g v (p,s,l,hp,hs) = 
+    case match v g of
+        (Nothing,_) -> (toAdj p, toAdj s)     
+        (Just (p', _, _, s'), m) -> 
+            let adj1 = p' ++ toAdj p
+                adj2 = s' ++ toAdj s
+            in (adj1, adj2)
 
 
 

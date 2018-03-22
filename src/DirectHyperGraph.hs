@@ -1,5 +1,4 @@
 {-# LANGUAGE CPP #-}
-{-# LANGUAGE GADTs #-}
 
 -- (c) 1999-2005 by Martin Erwig [see file COPYRIGHT]
 -- | Static and Dynamic Inductive Graphs
@@ -85,11 +84,6 @@ type UNode   = LNode ()
 type  Edge   = (Node,Node)
 -- | Labeled edge
 type LEdge b = (Node, Node, b)
-{-
-data LEdge a b h where
-  LEdge  :: (Node,Node,b) -> LEdge () b ()
-  LHyper :: (Graph sub) => sub a b -> sub a b -> h -> LEdge a b h  
--}
 
 -- | Quasi-unlabeled edge
 type UEdge   = LEdge ()
