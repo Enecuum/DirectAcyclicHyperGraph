@@ -28,6 +28,6 @@ gen hgr = do
     else gen hgr'
 
 -- test
-hprint h = h >>= hprettyPrint
+hprint = (gen h) >>= hprettyPrint
 
 
