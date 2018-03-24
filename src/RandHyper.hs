@@ -10,7 +10,7 @@ import qualified Data.IntMap as IM
 import DirectHyperGraph (mkGraph)
 
 genHyper n k = do
-    let nodes = zip [1..n] (take 100 $ repeat ()) 
+    let nodes = zip [1..n] (take n $ repeat ()) 
         g     = mkGraph nodes [] :: Sub () () ()
         h     = HGr g IM.empty
     gen h n k
