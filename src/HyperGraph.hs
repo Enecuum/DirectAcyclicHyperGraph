@@ -15,6 +15,7 @@ import System.Random
 import Control.Monad (replicateM)
 
 data Block h = Block
+             | Label h
              | Statistic { block :: Block h, count :: Int, time :: Double, amount :: Int }
   deriving (Show)
 
@@ -33,23 +34,23 @@ data HContext h = SimpleHCont (IntSet, Block h)
 type HGraphRep h = IntMap (HContext h)
 
 -- two type of nodes of biparate graph 
-data HNode a where
-    HNode :: Node -> Node -> Simple -> HNode Simple
-    --Block :: Node -> Node -> Super  -> HNode Super
+--data HNode a where
+--    HNode :: Node -> Node -> Simple -> HNode Simple
+--      Block :: Node -> Node -> Super  -> HNode Super
 
 type Sub a b h = Gr (Block h) a b 
 
 -- HyperEdge representations
 data Hyper a b h where
-    Simple   :: [Node] -> h -> Hyper () () h
-    SDirect  :: [Node] -> [Node] -> h -> Hyper () () h
+    Simple   :: [Node] -> Block h -> Hyper () () h
+    SDirect  :: [Node] -> [Node] -> Block h -> Hyper () () h
     --Hyper :: (Gr sub) => (sub a b, sub a b) -> Edge a b
     Conected :: Sub a b h -> Block h -> Hyper a b h
     CDirect  :: Sub a b h -> Sub a b h -> Block h -> Hyper a b h
 
 data HGr a b h = --HGr (Gr h a b) (HGraphRep h)
                  HGr (Sub a b h) (HGraphRep h)
-               | HDir (Sub a b h) (HGraphRep h)
+               | HyperGraph (UGr h) (HGraphRep h)
   deriving (Show)
 
 -- empty HyperGraph
@@ -59,10 +60,20 @@ hempty = HGr empty IM.empty
 -- insert HyperEdge
 (+>>) :: Hyper a b h -> HGr a b h -> HGr a b h
 
+(Simple ns hl) +>> (HGr g h) = 
+    let hedge = IS.fromList ns
+        hcont = SimpleHCont (hedge, hl)
+        sub   = mkUGraph ns []
+        n     = IM.size h + 1
+        h'    = IM.insert n hcont h
+        sub'  = insBlock hcont n sub
+        g1    = mergeGraphs g sub'
+    in HGr g1 h'
+
 (Conected sub hl) +>> (HGr g h) = 
     let hedge = IS.fromList (nodes sub)
         hcont = SimpleHCont (hedge, hl)
-        n     = IM.size h 
+        n     = IM.size h + 1
         h'    = IM.insert n hcont h
         sub'  = insBlock hcont n sub
         g1    = --insEdges (labEdges sub) $ insNodes (labNodes sub) g 
@@ -103,6 +114,21 @@ hprettyPrint = putStr . hprettify
 
 hsize :: HGr a b h -> Int
 hsize (HGr g h) = IM.size h
+
+hnodes :: HGr a b h -> [Node]
+hnodes (HGr g _) = nodes g
+
+{-
+mkHyper :: [LNode a] -> HGr a b h
+mkHyper ns = let sub = mkGraph ns [] -- :: Sub a b h
+             in HGr sub IM.empty
+-}
+
+mkHyperGraph :: [Node] -> [([Node], h)] -> HGr () () h
+mkHyperGraph ns hes = let sub  = mkUGraph ns []
+                          init = HGr sub IM.empty
+                          hs   = map (\(ns,hl) -> Simple ns (Label hl)) hes
+                      in foldl (flip (+>>)) init hs
 
 ----------------------------------------------------------------------
 -- HELPERS

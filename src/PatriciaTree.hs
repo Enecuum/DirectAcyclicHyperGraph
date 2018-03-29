@@ -69,7 +69,7 @@ type Context' a b h = (IntMap [b], IntMap [b], a, IntMap h, IntMap h)
 
 type HyperContext a b h = (Adj b, Adj b, Node, a, IntMap h, IntMap h)
 
-type UGr = Gr () ()
+type UGr h = Gr h () ()
 
 ----------------------------------------------------------------------
 -- CLASS INSTANCES
