@@ -8,7 +8,7 @@ import Control.Monad (replicateM)
 import qualified Data.IntMap as IM (empty)
 import qualified Data.IntSet as IS 
 
-import DirectHyperGraph (mkGraph)
+import Data.Graph.Inductive.Graph (mkGraph)
 
 genHyper n k = do
     let nodes = zip [1..n] (take n $ repeat ()) 

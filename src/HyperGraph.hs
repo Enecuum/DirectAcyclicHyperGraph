@@ -8,7 +8,7 @@ import qualified Data.IntMap as IM
 import Data.IntSet (IntSet)
 import qualified Data.IntSet as IS
 
-import DirectHyperGraph 
+import Data.Graph.Inductive.Graph
 import PatriciaTree
 
 import System.Random
