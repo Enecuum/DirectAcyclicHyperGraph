@@ -1,6 +1,7 @@
 module HyperViz where
 
-import HyperGraph 
+import Data.Hyper
+
 import RandHyper
 
 import qualified Data.GraphViz as G

@@ -1,6 +1,6 @@
 module RandHyper where
 
-import HyperGraph
+import Data.Hyper.HyperGraph
 
 import System.Random
 import Control.Monad (replicateM)
