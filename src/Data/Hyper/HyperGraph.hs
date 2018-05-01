@@ -3,7 +3,7 @@
 module Data.Hyper.HyperGraph where
 
 import Data.IntMap (IntMap)
-import qualified Data.IntMap as IM 
+import qualified Data.IntMap as IM
 
 import Data.IntSet (IntSet)
 import qualified Data.IntSet as IS
@@ -21,25 +21,20 @@ data Block h = Block
   deriving (Show)
 
 
-data Simple
-
-data Super
-
-type Size = Int
-
--- HyperContext
-data HContext h = SimpleHCont (IntSet, Block h) 
-                | DirectHCont (IntSet, Block h, IntSet)
+type IncomingVertices = IntSet
+type OutcomingVertices = IntSet
+data HContext h = SimpleHCont (IncomingVertices, Block h)
+                | DirectHCont (IncomingVertices, Block h, OutcomingVertices)
   deriving (Show)
 
 type HGraphRep h = IntMap (HContext h)
 
--- two type of nodes of biparate graph 
+-- two type of nodes of biparate graph
 --data HNode a where
 --    HNode :: Node -> Node -> Simple -> HNode Simple
 --      Block :: Node -> Node -> Super  -> HNode Super
 
-type Sub a b h = Gr (Block h) a b 
+type Sub a b h = Gr (Block h) a b
 
 -- HyperEdge representations
 data Hyper a b h where
@@ -48,6 +43,8 @@ data Hyper a b h where
     --Hyper :: (Gr sub) => (sub a b, sub a b) -> Edge a b
     Conected :: Sub a b h -> Block h -> Hyper a b h
     CDirect  :: Sub a b h -> Sub a b h -> Block h -> Hyper a b h
+
+-- deriving instance Show (Hyper a b h)
 
 data HGr a b h = --HGr (Gr h a b) (HGraphRep h)
                  HGr (Sub a b h) (HGraphRep h)
@@ -61,7 +58,7 @@ hempty = HGr empty IM.empty
 -- insert HyperEdge
 (+>>) :: Hyper a b h -> HGr a b h -> HGr a b h
 
-(Simple ns hl) +>> (HGr g h) = 
+(Simple ns hl) +>> (HGr g h) =
     let hedge = IS.fromList ns
         hcont = SimpleHCont (hedge, hl)
         sub   = mkUGraph ns []
@@ -71,18 +68,18 @@ hempty = HGr empty IM.empty
         g1    = mergeGraphs g sub'
     in HGr g1 h'
 
-(Conected sub hl) +>> (HGr g h) = 
+(Conected sub hl) +>> (HGr g h) =
     let hedge = IS.fromList (nodes sub)
         hcont = SimpleHCont (hedge, hl)
         n     = IM.size h + 1
         h'    = IM.insert n hcont h
         sub'  = insBlock hcont n sub
-        g1    = --insEdges (labEdges sub) $ insNodes (labNodes sub) g 
+        g1    = --insEdges (labEdges sub) $ insNodes (labNodes sub) g
                 mergeGraphs g sub'
         --g2    = insBlock hcont n g1
     in HGr g1 h'
 
-(CDirect sub1 sub2 hl) +>> (HGr g h) = 
+(CDirect sub1 sub2 hl) +>> (HGr g h) =
     let hedge = (IS.fromList $ nodes sub1, IS.fromList $ nodes sub2)
         hcont = DirectHCont (fst hedge, hl, snd hedge)
         n     = IM.size h + 1
@@ -90,7 +87,7 @@ hempty = HGr empty IM.empty
         sub1' = insBlockPreds hcont n sub1
         sub2' = insBlockSuccs hcont n sub2
         g1    = mergeGraphs (mergeGraphs g sub1') sub2'
-    in HGr g1 h' 
+    in HGr g1 h'
 
 
 getBlocks :: HGr a b h -> [(Int, [Int], Block h)]
@@ -105,7 +102,7 @@ getDirBlocks (HGr _ h) = map f (IM.toList h)
 hprettify :: (Show a, Show b, Show h) => HGr a b h -> String
 hprettify hg = foldr showsContext id (getDirBlocks hg) ""
   where
-    showsContext (hp,n,l,hs) sg = ("Hyper "++) . shows n  
+    showsContext (hp,n,l,hs) sg = ("Hyper "++) . shows n
                                   . showString " -> " . shows hp
                                   . showString " "    . shows hs
                                   . ('\n':) . sg
@@ -130,21 +127,21 @@ mkHyperGraph ns hes = let sub  = mkUGraph ns []
 ----------------------------------------------------------------------
 
 mkHContInit :: IntSet -> Block h -> HGraphRep h
-mkHContInit hedge h = IM.insert 0 (SimpleHCont (hedge, h)) IM.empty 
+mkHContInit hedge h = IM.insert 0 (SimpleHCont (hedge, h)) IM.empty
 
 insBlockInit :: Sub a b h -> Block h -> Sub a b h
 insBlockInit (Gr cont) hl = Gr (IM.map (f hl) cont)
-  where f hl (ps, ss, l, hps, hss) = 
+  where f hl (ps, ss, l, hps, hss) =
           let hps' = IM.insert 0 hl hps
-          in (ps, ss, l, hps', hss)  
+          in (ps, ss, l, hps', hss)
 
 mergeGraphs (Gr gr') gr = IM.foldlWithKey' insCont gr gr'
 
-insCont :: Gr h a b  -> Node -> Context' a b h -> Gr h a b 
-insCont g v (p1,s1,l,hp1,hs1) = 
+insCont :: Gr h a b  -> Node -> Context' a b h -> Gr h a b
+insCont g v (p1,s1,l,hp1,hs1) =
     case matchHGr v g of
-        (Nothing,_) -> (toAdj p1, toAdj s1, v, l, hp1, hs1) *& g    
-        (Just (p2, s2, _, _, hp2, hs2), m) -> 
+        (Nothing,_) -> (toAdj p1, toAdj s1, v, l, hp1, hs1) *& g
+        (Just (p2, s2, _, _, hp2, hs2), m) ->
             let adj1 = p2 ++ toAdj p1
                 adj2 = s2 ++ toAdj s1
                 hp3  = IM.union hp1 hp2
@@ -154,27 +151,27 @@ insCont g v (p1,s1,l,hp1,hs1) =
 
 insBlock :: HContext h -> Int -> Sub a b h -> Sub a b h
 insBlock (SimpleHCont (_, hl)) n (Gr cont) = Gr (IM.map (f n hl) cont)
-  where f n hl (ps, ss, l, hps, hss) = 
-          let hps' = IM.insert n hl hps 
+  where f n hl (ps, ss, l, hps, hss) =
+          let hps' = IM.insert n hl hps
           in (ps, ss, l, hps', hss)
 
 insBlockPreds :: HContext h -> Int -> Sub a b h -> Sub a b h
 insBlockPreds (DirectHCont (_, hl, _)) n (Gr cont) = Gr (IM.map (f n hl) cont)
-  where f n hl (ps, ss, l, hps, hss) = 
-          let hps' = IM.insert n hl hps 
+  where f n hl (ps, ss, l, hps, hss) =
+          let hps' = IM.insert n hl hps
           in (ps, ss, l, hps', hss)
 
 insBlockSuccs :: HContext h -> Int -> Sub a b h -> Sub a b h
 insBlockSuccs (DirectHCont (_, hl, _)) n (Gr cont) = Gr (IM.map (f n hl) cont)
-  where f n hl (ps, ss, l, hps, hss) = 
-          let hss' = IM.insert n hl hss 
+  where f n hl (ps, ss, l, hps, hss) =
+          let hss' = IM.insert n hl hss
           in (ps, ss, l, hps, hss')
 
-getHCont (HGr (Gr cont) _) = cont 
+getHCont (HGr (Gr cont) _) = cont
 
 getHyperCont (HGr _ h) = h
 
-getCont (Gr cont) = cont 
+getCont (Gr cont) = cont
 
 getGr (HGr g _) = g
 
@@ -233,12 +230,3 @@ sub21 = mkGraph nodes21 [] :: Sub Int Int ()
 sub22 = mkGraph nodes22 [] :: Sub Int Int ()
 he21 = CDirect sub21 sub22 Block
 hypergraph21 = he21 +>> (he11 +>> hempty)
-
-
-
-
-
-
-
-
-

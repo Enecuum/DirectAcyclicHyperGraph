@@ -1,4 +1,17 @@
-resolver: lts-9.21
+resolver: lts-10.7
+# 9.21
 
 packages:
 - .
+
+extra-deps:
+- random-1.1
+- template-haskell-2.13.0.0
+- base58-bytestring-0.1.0
+- json-rpc-client-0.2.5.0
+- json-rpc-server-0.2.6.0
+- time-out-0.2
+- time-interval-0.1.1
+- time-units-1.0.0
+- git: git@github.com:enecuum/node.git
+  commit: c1d68ddc3a5fa5709438062db3b5058f295b94eb

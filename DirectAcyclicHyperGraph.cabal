@@ -1,0 +1,68 @@
+-- This file has been generated from package.yaml by hpack version 0.20.0.
+--
+-- see: https://github.com/sol/hpack
+--
+-- hash: 2ca5271215ca12aeafec0b0133b71541c1a21c15ec9b0b9adb311e439ac33157
+
+name:           DirectAcyclicHyperGraph
+version:        0.1.0.0
+homepage:       https://github.com/enecuum/DirectAcyclicHyperGraph#readme
+bug-reports:    https://github.com/enecuum/DirectAcyclicHyperGraph/issues
+copyright:      Enecuum
+license-file:   LICENSE
+build-type:     Simple
+cabal-version:  >= 1.10
+
+extra-source-files:
+    ChangeLog.md
+    README.md
+
+source-repository head
+  type: git
+  location: https://github.com/enecuum/DirectAcyclicHyperGraph
+
+flag containers042 {
+    manual:  False
+    default: True
+}
+
+library
+  hs-source-dirs:
+      src
+  build-depends:
+                fgl
+               , random
+  exposed-modules:
+      Data.Hyper
+      Data.Hyper.Algo.HyperPath
+      Data.Hyper.HyperGraph
+      Data.Hyper.PatriciaTree
+      Data.Hyper.Template.Templates
+      HyperViz
+      PatriciaTreeOriginal
+      RandHyper
+      TxGen
+  other-modules:
+      Paths_DirectAcyclicHyperGraph
+  default-language: Haskell2010
+
+  build-depends:    base < 5
+                  , transformers
+                  , array
+                  , template-haskell
+                  , graphviz
+                  , time
+                  , extra
+                  , Node
+
+  if flag(containers042)
+      build-depends:    containers >= 0.4.2
+                      , deepseq >= 1.1.0.0 && < 1.5
+  else
+      build-depends:    containers < 0.4.2
+
+  if impl(ghc >= 7.2) && impl(ghc < 7.6)
+      build-depends:
+          ghc-prim
+
+  ghc-options:      -Wall

@@ -19,7 +19,7 @@
 --
 -- * 'Data.Graph.Inductive.Graph.emap'
 
-module Data.Graph.Inductive.PatriciaTree
+module PatriciaTreeOriginal
     ( Gr
     , UGr
     )

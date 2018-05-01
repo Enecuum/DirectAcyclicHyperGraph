@@ -1,1 +1,1 @@
-module Algo.HyperPath where
+module Data.Hyper.Algo.HyperPath where
