@@ -16,7 +16,7 @@ import System.Random
 import Control.Monad (replicateM)
 
 data Block h = Block
-             | Label h
+             | Label Int
              | Statistic { block :: Block h, count :: Int, time :: Double, amount :: Int }
   deriving (Show)
 
@@ -90,6 +90,23 @@ hempty = HGr empty IM.empty
     in HGr g1 h'
 
 
+extendHyper :: [(Int, [Int])] -> HGr a b h -> HGr a b h
+extendHyper ns hg = foldl f hg ns
+    where f (HGr (Gr g) h) (k, vs) = 
+            case IM.lookup k h of
+              Nothing  -> let hedge = IS.fromList vs
+                              hcont = SimpleHCont (hedge, (Label k))
+                              h'    = IM.insert k hcont h
+                              g'    = foldl (\g' v -> IM.adjust (ins2 k) v g') g vs
+                          in HGr (Gr g') h'
+              (Just _) -> let h' = IM.adjust (ins1 $ IS.fromList vs) k h
+                              g' = foldl (\g' v -> IM.adjust (ins2 k) v g') g vs
+                          in HGr (Gr g') h'
+
+          ins1 vs (SimpleHCont (he,l)) = SimpleHCont (IS.union vs he, l)  
+          ins2 k (p, s, l, hp, hs) = (p, s, l, IM.insert k (Label k) hp, hs)                                     
+
+
 getBlocks :: HGr a b h -> [(Int, [Int], Block h)]
 getBlocks (HGr _ h) = map f (IM.toList h)
     where f (n, (SimpleHCont (he, l))) = (n, (IS.toList he), l)
@@ -116,7 +133,7 @@ hsize (HGr g h) = IM.size h
 hnodes :: HGr a b h -> [Node]
 hnodes (HGr g _) = nodes g
 
-mkHyperGraph :: [Node] -> [([Node], h)] -> HGr () () h
+mkHyperGraph :: [Node] -> [([Node], Int)] -> HGr () () h
 mkHyperGraph ns hes = let sub  = mkUGraph ns []
                           init = HGr sub IM.empty
                           hs   = map (\(ns,hl) -> Simple ns (Label hl)) hes
@@ -230,3 +247,24 @@ sub21 = mkGraph nodes21 [] :: Sub Int Int ()
 sub22 = mkGraph nodes22 [] :: Sub Int Int ()
 he21 = CDirect sub21 sub22 Block
 hypergraph21 = he21 +>> (he11 +>> hempty)
+<<<<<<< HEAD
+
+--
+gr0 = mkGraph [(v,()) | v <- [1..10]] 
+              [(v1,v2,()) | v1 <- [1..3], v2 <- [4..6]]
+              :: Sub () () ()
+
+hgr00 = HGr gr0 IM.empty
+hgr01 = extendHyper [(1, [1..3]), (2, [4..6])] hgr00
+hgr02 = extendHyper [(1, [4,8]), (2, [1,9,10])] hgr01
+
+
+
+
+
+
+
+
+
+=======
+>>>>>>> 2c9e840129abb18de9e5c722fdcdecca52141ea8
