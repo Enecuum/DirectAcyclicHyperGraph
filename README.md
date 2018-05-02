@@ -1,4 +1,4 @@
-## Inductive HyperGraph and Functional HyperGraph Algorithms
+## Inductive HyperGraph and Functional HyperGraph Algorithms 
 
 A library for directed hypergraphs based on the inductive graph concept proposed by Martin Erwig, implementing important algorithms for hypergraphs.
 

@@ -88,8 +88,7 @@ hempty = HGr empty IM.empty
         sub2' = insBlockSuccs hcont n sub2
         g1    = mergeGraphs (mergeGraphs g sub1') sub2'
     in HGr g1 h'
-
-
+    
 extendHyper :: [(Int, [Int])] -> HGr a b h -> HGr a b h
 extendHyper ns hg = foldl f hg ns
     where f (HGr (Gr g) h) (k, vs) = 
@@ -247,7 +246,6 @@ sub21 = mkGraph nodes21 [] :: Sub Int Int ()
 sub22 = mkGraph nodes22 [] :: Sub Int Int ()
 he21 = CDirect sub21 sub22 Block
 hypergraph21 = he21 +>> (he11 +>> hempty)
-<<<<<<< HEAD
 
 --
 gr0 = mkGraph [(v,()) | v <- [1..10]] 
@@ -266,5 +264,3 @@ hgr02 = extendHyper [(1, [4,8]), (2, [1,9,10])] hgr01
 
 
 
-=======
->>>>>>> 2c9e840129abb18de9e5c722fdcdecca52141ea8
